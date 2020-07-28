@@ -1,3 +1,8 @@
+# Author:   Andrew Hinton
+# Email:    andrew84@email.unc.edu
+# github:   https://github.com/andrew84830813/food_antigen_sensitization-mircobiome-genetically_susceptible_mice.git
+
+
 
 ### Read Data
 dat = read_csv("Output/preCompositionByStrain.csv")

@@ -1,3 +1,8 @@
+# Author:   Andrew Hinton
+# Email:    andrew84@email.unc.edu
+# github:   https://github.com/andrew84830813/food_antigen_sensitization-mircobiome-genetically_susceptible_mice.git
+
+
 rm(list=ls())
 gc()
 
@@ -80,6 +85,7 @@ mouse_cages = as.character(unique(rawData$mouse_cage))
 strains = as.character(unique(rawData$Strain))
 treatments = as.character(unique(rawData$Sensitization))
 ids = as.character(unique(rawData$cage_mouse))
+pseudoCount = 1e-7 #imputed count
 
 #get features
 features = rawData %>% 
@@ -95,31 +101,53 @@ cc027_dat = rawData %>%
   filter(Strain == strains[2])
 features = cc027_dat %>% 
   dplyr::select(starts_with(match = "V"))
-#pre
+
+#Pre-Process Pre-senz. Microbiome Composition
 cc027_pre = cc027_dat %>% 
   filter(Time=="pre")
 features.pre = cc027_pre %>% 
   dplyr::select(starts_with(match = "V"))
-cc027_features.pre = clo(features.pre + 5e-07 ) #add pseudo count
+### impute Missing Values using 
+# identify min count by sample not equal to 0
+ph = features.pre
+ph[features.pre==0] = NA
+minCount = apply(ph,MARGIN = 1, min,na.rm = T)
+#add samplewise min count to each sample 
+for(i in 1:nrow(features.pre)){
+  features.pre[i,] = features.pre[i,] + minCount[i]
+}
+cc027_features.pre = clo(features.pre ) #add pseudo count
 rownames(cc027_features.pre) = cc027_pre$mouse_cage
-#post
+
+#Pre-Process Post-senz. Microbiome Composition
 cc027_post = cc027_dat %>% 
   filter(Time=="post") %>% 
   filter(mouse_cage %in% cc027_pre$mouse_cage)
 features.post = cc027_post %>% 
   dplyr::select(starts_with(match = "V"))
-cc027_features.post = clo(features.post + 5e-07)
+### impute Missing Values
+# identify min count by sample not equal to 0
+ph = features.post
+ph[features.post==0] = NA
+minCount = apply(ph,MARGIN = 1, min,na.rm = T)
+#add samplewise min count to each sample 
+for(i in 1:nrow(features.post)){
+  features.post[i,] = features.post[i,] + minCount[i]
+}
+cc027_features.post = clo(features.post)
 rownames(cc027_features.post) = cc027_post$mouse_cage
+
 #QC
 sum(!cc027_post$mouse_cage == cc027_pre$mouse_cage) #should be 0
-#compute diff in pre post composition
+
+#compute pertubation in pre -> post composition
 post_pre.pertubation = clo(cc027_features.post/cc027_features.pre)
 post_pre.pertubation = data.frame(mouse_cage = rownames(post_pre.pertubation),post_pre.pertubation)
 post_pre.pertubation = left_join(cc027_post[,1:23],post_pre.pertubation)
 features.pert = post_pre.pertubation %>% 
   dplyr::select(starts_with(match = "V"))
 
-##  perturb Data ###
+##  Store Perturbation  Data ###
 #By Sens
 id_sen = paste(post_pre.pertubation$Strain,post_pre.pertubation$Sensitization,sep = "_")
 df = data.frame(Sensitzation = id_sen,features.pert)
@@ -139,31 +167,55 @@ C3H_dat = rawData %>%
   filter(Strain == strains[1])
 features = C3H_dat %>% 
   dplyr::select(starts_with(match = "V"))
-#pre
+
+#Pre-Process Pre-senz. Microbiome Composition
 C3H_pre = C3H_dat %>% 
   filter(Time=="pre")
 features.pre = C3H_pre %>% 
   dplyr::select(starts_with(match = "V"))
-C3H_features.pre = clo(features.pre + 5e-07 ) #add pseudo count
+
+### impute Missing Values using 
+# identify min count by sample not equal to 0
+ph = features.pre
+ph[features.pre==0] = NA
+minCount = apply(ph,MARGIN = 1, min,na.rm = T)
+#add samplewise min count to each sample 
+for(i in 1:nrow(features.pre)){
+  features.pre[i,] = features.pre[i,] + minCount[i]
+}
+C3H_features.pre = clo(features.pre ) 
 rownames(C3H_features.pre) = C3H_pre$mouse_cage
-#post
+
+#Pre-Process Post-senz. Microbiome Composition
 C3H_post = C3H_dat %>% 
   filter(Time=="post") %>% 
   filter(mouse_cage %in% C3H_pre$mouse_cage)
 features.post = C3H_post %>% 
   dplyr::select(starts_with(match = "V"))
-C3H_features.post = clo(features.post + 5e-07)
+
+### impute Missing Values
+# identify min count by sample not equal to 0
+ph = features.post
+ph[features.post==0] = NA
+minCount = apply(ph,MARGIN = 1, min,na.rm = T)
+#add samplewise min count to each sample 
+for(i in 1:nrow(features.post)){
+  features.post[i,] = features.post[i,] + minCount[i]
+}
+C3H_features.post = clo(features.post)
 rownames(C3H_features.post) = C3H_post$mouse_cage
+
 #QC
 sum(!C3H_post$mouse_cage == C3H_pre$mouse_cage) #should be 0
-#compute diff in pre post composition
+
+#compute pertubation in pre post composition
 post_pre.pertubation = clo(C3H_features.post/C3H_features.pre)
 post_pre.pertubation = data.frame(mouse_cage = rownames(post_pre.pertubation),post_pre.pertubation)
 post_pre.pertubation = left_join(C3H_post[,1:23],post_pre.pertubation)
 features.pert = post_pre.pertubation %>% 
   dplyr::select(starts_with(match = "V"))
 
-##  perturb Data ###
+##  Store Perturbation Data ###
 #By Sens
 id_sen = paste(post_pre.pertubation$Strain,post_pre.pertubation$Sensitization,sep = "_")
 df = data.frame(Sensitzation = id_sen,features.pert)
