@@ -6,6 +6,8 @@
 rm(list=ls())
 gc()
 
+
+
 ### Load Required Packages  ####
 library(compositions)
 library(data.table)
@@ -19,6 +21,11 @@ library(glmnet)
 library(xgboost)
 library(vegan)
 library(knitr)
+library(ggsci)
+
+
+#Should we impute zeroes
+imputeZeros = F
 
 
 # Read csv
@@ -33,7 +40,7 @@ cnames = separate(cnames,1,sep = ";",remove = F,
 cnames$ID = paste("V",1:nrow(cnames),sep = "")
 featurePosition = which(str_detect(colnames(micro),pattern = "k__")==T)
 
-#OTU data
+#ASV data
 otu = data.frame(micro[,featurePosition])
 colnames(otu) = cnames$ID
 #get metdata
@@ -78,7 +85,7 @@ table(rawData$Sensitization);(table(metadata$Sensitization))
 table(rawData$Strain);(table(metadata$Strain))
 table(rawData$Reactors);(table(metadata$Reactors))
 clo(table(rawData$IgE));clo(table(metadata$IgE))
-
+table(metadata$Reactors,metadata$Sensitization)
 
 #data parms
 mouse_cages = as.character(unique(rawData$mouse_cage))
@@ -90,6 +97,11 @@ pseudoCount = 1e-7 #imputed count
 #get features
 features = rawData %>% 
   dplyr::select(starts_with(match = "V"))
+
+#zero replacement rel. abundance factor
+df.cdata2 = clo(features)
+factor = 1
+impFactor =min(df.cdata2[df.cdata2>0]) / factor
 
 
 
@@ -107,16 +119,8 @@ cc027_pre = cc027_dat %>%
   filter(Time=="pre")
 features.pre = cc027_pre %>% 
   dplyr::select(starts_with(match = "V"))
-### impute Missing Values using 
-# identify min count by sample not equal to 0
-ph = features.pre
-ph[features.pre==0] = NA
-minCount = apply(ph,MARGIN = 1, min,na.rm = T)
-#add samplewise min count to each sample 
-for(i in 1:nrow(features.pre)){
-  features.pre[i,] = features.pre[i,] + minCount[i]
-}
-cc027_features.pre = clo(features.pre ) #add pseudo count
+cc027_counts = data.frame(Strain = "CC027",features.pre)
+cc027_features.pre = fastImputeZeroes(clo(features.pre) ,impFactor )#add pseudo count
 rownames(cc027_features.pre) = cc027_pre$mouse_cage
 
 #Pre-Process Post-senz. Microbiome Composition
@@ -125,16 +129,8 @@ cc027_post = cc027_dat %>%
   filter(mouse_cage %in% cc027_pre$mouse_cage)
 features.post = cc027_post %>% 
   dplyr::select(starts_with(match = "V"))
-### impute Missing Values
-# identify min count by sample not equal to 0
-ph = features.post
-ph[features.post==0] = NA
-minCount = apply(ph,MARGIN = 1, min,na.rm = T)
-#add samplewise min count to each sample 
-for(i in 1:nrow(features.post)){
-  features.post[i,] = features.post[i,] + minCount[i]
-}
-cc027_features.post = clo(features.post)
+
+cc027_features.post = fastImputeZeroes(clo(features.post) ,impFactor )
 rownames(cc027_features.post) = cc027_post$mouse_cage
 
 #QC
@@ -173,17 +169,8 @@ C3H_pre = C3H_dat %>%
   filter(Time=="pre")
 features.pre = C3H_pre %>% 
   dplyr::select(starts_with(match = "V"))
-
-### impute Missing Values using 
-# identify min count by sample not equal to 0
-ph = features.pre
-ph[features.pre==0] = NA
-minCount = apply(ph,MARGIN = 1, min,na.rm = T)
-#add samplewise min count to each sample 
-for(i in 1:nrow(features.pre)){
-  features.pre[i,] = features.pre[i,] + minCount[i]
-}
-C3H_features.pre = clo(features.pre ) 
+C3H_counts = data.frame(Strain = "C3H",features.pre)
+C3H_features.pre =  fastImputeZeroes(clo(features.pre) ,impFactor )#add pseudo count
 rownames(C3H_features.pre) = C3H_pre$mouse_cage
 
 #Pre-Process Post-senz. Microbiome Composition
@@ -193,16 +180,8 @@ C3H_post = C3H_dat %>%
 features.post = C3H_post %>% 
   dplyr::select(starts_with(match = "V"))
 
-### impute Missing Values
-# identify min count by sample not equal to 0
-ph = features.post
-ph[features.post==0] = NA
-minCount = apply(ph,MARGIN = 1, min,na.rm = T)
-#add samplewise min count to each sample 
-for(i in 1:nrow(features.post)){
-  features.post[i,] = features.post[i,] + minCount[i]
-}
-C3H_features.post = clo(features.post)
+
+C3H_features.post = fastImputeZeroes(clo(features.post) ,impFactor )#add pseudo count
 rownames(C3H_features.post) = C3H_post$mouse_cage
 
 #QC
@@ -251,3 +230,23 @@ df.metadata = rbind(cc027_perturb_meta,C3H_perturb_meta)
 write_csv(x = df,path = "Output/pertubationByStrain.csv")
 write_csv(x = df.metadata,path = "Output/pertubationByStrainMetadata.csv")
 ###################################
+
+
+###################################
+### Presen Counts CC027 and C3h #####
+###################################
+df = rbind(cc027_counts,C3H_counts)
+#write output data 
+write_csv(x = df,path = "Output/preSenCountsByStrain.csv")
+###################################
+
+
+###################################
+### Presen Counts CC027 and C3h #####
+###################################
+#write output data 
+write_csv(x = cnames,path = "Output/supp2-taxaTable.csv")
+###################################
+
+
+
